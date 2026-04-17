@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notes Manager AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body { background: #0f172a; color: white; font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        /* Styling hasil Markdown */
+        .prose pre { background: #1e293b; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; color: #e2e8f0; margin: 10px 0; }
+        .prose code { color: #f472b6; font-family: monospace; }
+        .prose ul { list-style-type: disc; margin-left: 1.5rem; }
+        .prose p { margin-bottom: 0.75rem; }
+    </style>
+</head>
+<body class="h-screen w-screen flex p-4 gap-4 overflow-hidden">
+
+    <div class="w-1/3 flex flex-col gap-4">
+        <div class="glass flex-1 rounded-3xl p-6 flex flex-col">
+            <h2 class="text-xl font-bold mb-4 text-blue-400">Notes Manager AI</h2>
+            <p class="text-xs text-slate-400 mb-2">Semua yang kamu tulis di sini akan dianggap sebagai pengetahuan tambahan oleh AI.</p>
+            <textarea id="notes-area" 
+                class="flex-1 bg-white/5 border border-white/10 rounded-2xl p-4 text-sm outline-none focus:border-blue-500 transition resize-none"
+                placeholder="Contoh: Nama saya Budi. Saya suka makan bakso. Pekerjaan saya adalah developer..."></textarea>
+        </div>
+    </div>
+
+    <div class="w-2/3 flex flex-col gap-4">
+        <div id="chat-container" class="glass flex-1 rounded-3xl flex flex-col overflow-hidden shadow-2xl">
+            <div class="p-5 border-b border-white/10 flex justify-between items-center bg-white/5">
+                <span class="font-semibold text-lg">AI Assistant</span>
+                <button onclick="resetChat()" class="text-xs text-slate-400 hover:text-red-400 transition">Reset Session</button>
+            </div>
+
+            <div id="messages" class="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar">
+                <div class="self-start bg-white/10 p-4 rounded-2xl rounded-bl-none max-w-[90%] text-sm prose prose-invert">
+                    Halo! Isi <b>Notes</b> di sebelah kiri, lalu tanya saya apa saja!
+                </div>
+            </div>
+
+            <div class="p-4 bg-white/5 border-t border-white/10">
+                <div class="flex gap-2 items-center bg-white/10 p-2 rounded-2xl">
+                    <input type="text" id="user-input" 
+                        class="bg-transparent flex-1 outline-none px-4 py-2 text-sm" 
+                        placeholder="Kirim pesan ke AI...">
+                    <button id="send-btn" class="bg-blue-600 hover:bg-blue-500 p-2 px-6 rounded-xl text-sm font-bold transition">
+                        Kirim
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const messagesDiv = document.getElementById('messages');
+    const userInput = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+    const notesArea = document.getElementById('notes-area');
+
+    // Fungsi Render Markdown
+    function renderMarkdown(text) {
+        return marked.parse(text);
+    }
+
+    function appendMessage(role, text) {
+        const isBot = role === 'bot';
+        const content = isBot ? renderMarkdown(text) : text;
+        
+        const msgHtml = `
+            <div class="${isBot ? 'self-start bg-white/10' : 'self-end bg-blue-600'} p-4 rounded-2xl ${isBot ? 'rounded-bl-none' : 'rounded-br-none'} max-w-[90%] text-sm shadow-sm transition-all duration-300">
+                <div class="prose prose-invert prose-sm">${content}</div>
+            </div>
+        `;
+        messagesDiv.insertAdjacentHTML('beforeend', msgHtml);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    async function sendMessage() {
+        const prompt = userInput.value.trim();
+        const notes = notesArea.value.trim(); // Ambil isi notes
+        
+        if (!prompt) return;
+
+        appendMessage('user', prompt);
+        userInput.value = '';
+        
+        const loadingId = 'load-' + Date.now();
+        messagesDiv.insertAdjacentHTML('beforeend', `<div id="${loadingId}" class="self-start text-xs text-white/30 animate-pulse">Thinking...</div>`);
+
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt, notes }) // Kirim notes ke backend
+            });
+            const data = await response.json();
+            document.getElementById(loadingId).remove();
+            
+            if (data.response) {
+                appendMessage('bot', data.response);
+            }
+        } catch (error) {
+            document.getElementById(loadingId).innerText = "Error connecting to AI.";
+        }
+    }
+
+    async function resetChat() {
+        messagesDiv.innerHTML = '';
+        appendMessage('bot', "Session reset. Ada lagi?");
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+</script>
+
+</body>
+</html>
