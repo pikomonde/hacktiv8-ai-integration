@@ -1,5 +1,6 @@
 import express from 'express';
 import multer from 'multer';
+import cors from 'cors';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import fs from 'fs/promises';
@@ -18,6 +19,7 @@ const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const GEMINI_MODEL = 'gemini-2.5-flash';
 
 // Middleware agar Express dapat menerima request JSON 
+app.use(cors())
 app.use(express.json());
 
 // Helper untuk mengubah file lokal menjadi format yang dimengerti Gemini (Base64)
@@ -36,7 +38,7 @@ app.get('/', (req, res) => {
   res.send('Gemini AI API Multimodal Server is running!');
 });
 
-// 1. Endpoint untuk Teks (Sudah ada)
+// 1. Endpoint untuk Teks
 app.post('/generate-text', async (req, res) => {
   try {
     const { prompt } = req.body;
